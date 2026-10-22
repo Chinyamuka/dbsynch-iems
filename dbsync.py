@@ -4,7 +4,10 @@ dbsync — local database manager for IEMS on Aiven.
 
 Usage:
     dbsync init             First-run setup
-    dbsync status           Show connection, schema version, row counts
+    dbsync status           Connection, schema version, row counts
+    dbsync tables           Table listing with column + row counts
+    dbsync schema <table>   Column definitions for a table
+    dbsync sql "<query>"    Run an ad-hoc query
 
 Run 'dbsync <command> --help' for details.
 """
@@ -15,6 +18,12 @@ import sys
 import config as cfg
 from commands import init as cmd_init
 from commands import status as cmd_status
+from commands import tables as cmd_tables
+from commands import schema as cmd_schema
+from commands import sql as cmd_sql
+from commands import push as cmd_push
+from commands import dump as cmd_dump
+from commands import restore as cmd_restore
 
 
 BOLD  = "\033[1m"
@@ -23,20 +32,68 @@ RESET = "\033[0m"
 
 
 # =========================================================
-# COMMAND REGISTRY
+# COMMAND WRAPPERS
 # =========================================================
+
+def _load_config():
+    try:
+        return cfg.load()
+    except FileNotFoundError as e:
+        print(f"{RED}{e}{RESET}", file=sys.stderr)
+        return None
+
 
 def cmd_init_wrapper(args) -> int:
     return cmd_init.run()
 
 
 def cmd_status_wrapper(args) -> int:
-    try:
-        config = cfg.load()
-    except FileNotFoundError as e:
-        print(f"{RED}{e}{RESET}", file=sys.stderr)
+    config = _load_config()
+    if config is None:
         return 1
     return cmd_status.run(config)
+
+
+def cmd_tables_wrapper(args) -> int:
+    config = _load_config()
+    if config is None:
+        return 1
+    return cmd_tables.run(config)
+
+
+def cmd_schema_wrapper(args) -> int:
+    config = _load_config()
+    if config is None:
+        return 1
+    return cmd_schema.run(config, args)
+
+
+def cmd_sql_wrapper(args) -> int:
+    config = _load_config()
+    if config is None:
+        return 1
+    return cmd_sql.run(config, args)
+
+
+def cmd_push_wrapper(args) -> int:
+    config = _load_config()
+    if config is None:
+        return 1
+    return cmd_push.run(config, args)
+
+
+def cmd_dump_wrapper(args) -> int:
+    config = _load_config()
+    if config is None:
+        return 1
+    return cmd_dump.run(config, args)
+
+
+def cmd_restore_wrapper(args) -> int:
+    config = _load_config()
+    if config is None:
+        return 1
+    return cmd_restore.run(config, args)
 
 
 # =========================================================
@@ -64,8 +121,58 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser(
         "status",
-        help="Show connectivity, schema version, and row counts",
+        help="Connection, schema version, row counts",
     ).set_defaults(func=cmd_status_wrapper)
+
+    sub.add_parser(
+        "tables",
+        help="List tables with column and row counts",
+    ).set_defaults(func=cmd_tables_wrapper)
+
+    p_schema = sub.add_parser(
+        "schema",
+        help="Show column definitions for a table",
+    )
+    p_schema.add_argument("table", help="Table name")
+    p_schema.set_defaults(func=cmd_schema_wrapper)
+
+    p_sql = sub.add_parser(
+        "sql",
+        help="Run an ad-hoc SQL query",
+    )
+    p_sql.add_argument("query", help="SQL statement(s)")
+    p_sql.set_defaults(func=cmd_sql_wrapper)
+
+    p_push = sub.add_parser(
+        "push",
+        help="Apply pending migrations to Aiven",
+    )
+    p_push.add_argument(
+        "--yes", action="store_true",
+        help="Skip confirmation prompt",
+    )
+    p_push.set_defaults(func=cmd_push_wrapper)
+
+    p_dump = sub.add_parser(
+        "dump",
+        help="Dump Aiven to a .sql file",
+    )
+    p_dump.add_argument(
+        "path", nargs="?", default=None,
+        help="Output file (default: iems-aiven-YYYYMMDD-HHMMSS.sql)",
+    )
+    p_dump.set_defaults(func=cmd_dump_wrapper)
+
+    p_restore = sub.add_parser(
+        "restore",
+        help="Load a .sql file into Aiven (destructive — needs --yes)",
+    )
+    p_restore.add_argument("path", help="Path to .sql file")
+    p_restore.add_argument(
+        "--yes", action="store_true",
+        help="Confirm destructive operation",
+    )
+    p_restore.set_defaults(func=cmd_restore_wrapper)
 
     return parser
 
@@ -80,8 +187,6 @@ def main():
 
     if not args.command:
         parser.print_help()
-        return 0
-
     return args.func(args)
 
 
