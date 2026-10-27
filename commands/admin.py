@@ -14,6 +14,7 @@ from commands.entities import base
 from commands.entities import department as ent_department
 from commands.entities import category as ent_category
 from commands.entities import location as ent_location
+from commands.entities import equipment as ent_equipment
 
 
 GREEN = "\033[32m"
@@ -27,6 +28,7 @@ ENTITIES = [
     ("1", "Departments", ent_department),
     ("2", "Categories", ent_category),
     ("3", "Locations", ent_location),
+    ("4", "Equipment", ent_equipment),
 ]
 
 
