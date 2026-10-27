@@ -24,6 +24,8 @@ from commands import sql as cmd_sql
 from commands import push as cmd_push
 from commands import dump as cmd_dump
 from commands import restore as cmd_restore
+from commands import config as cmd_config
+from commands import admin as cmd_admin
 
 
 BOLD  = "\033[1m"
@@ -94,6 +96,22 @@ def cmd_restore_wrapper(args) -> int:
     if config is None:
         return 1
     return cmd_restore.run(config, args)
+
+
+def cmd_config_wrapper(args) -> int:
+    if args.config_command == "set-local":
+        return cmd_config.run_set_local(args)
+    if args.config_command == "show":
+        return cmd_config.run_show(args)
+    print(f"Unknown config subcommand: {args.config_command}")
+    return 1
+
+
+def cmd_admin_wrapper(args) -> int:
+    config = _load_config()
+    if config is None:
+        return 1
+    return cmd_admin.run(config, args)
 
 
 # =========================================================
@@ -173,6 +191,24 @@ def build_parser() -> argparse.ArgumentParser:
         help="Confirm destructive operation",
     )
     p_restore.set_defaults(func=cmd_restore_wrapper)
+
+    p_config = sub.add_parser("config", help="Manage dbsync config")
+    config_sub = p_config.add_subparsers(
+        dest="config_command", metavar="<subcommand>", required=True,
+    )
+    p_config_set = config_sub.add_parser(
+        "set-local", help="Set the local Postgres URI",
+    )
+    p_config_set.add_argument("uri", help="postgresql://user:pass@host:port/db")
+    p_config_set.set_defaults(func=cmd_config_wrapper)
+    config_sub.add_parser(
+        "show", help="Print current config (passwords redacted)",
+    ).set_defaults(func=cmd_config_wrapper)
+
+    sub.add_parser(
+        "admin",
+        help="Interactive CRUD against the local database",
+    ).set_defaults(func=cmd_admin_wrapper)
 
     return parser
 
