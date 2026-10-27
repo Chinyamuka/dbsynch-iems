@@ -70,6 +70,13 @@ def create(config):
 
     description = base.ask_optional("Description")
 
+    # Confirmation — catches typos in the name before insert
+    print()
+    print(f"  About to create department {BOLD}{name}{RESET}")
+    if not base.ask_confirm("Create?"):
+        print("  Aborted.")
+        return None
+
     try:
         base.local_execute(
             config,
